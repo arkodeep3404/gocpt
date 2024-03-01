@@ -3,8 +3,19 @@ const router = express.Router();
 const zod = require("zod");
 const { User } = require("../dbSchema");
 const jwt = require("jsonwebtoken");
-const { JWT_SECRET } = require("../config");
+const { JWT_SECRET, email, password } = require("../config");
 const { authMiddleware } = require("../middleware/middleware");
+const nodemailer = require("nodemailer");
+
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: email,
+    pass: password,
+  },
+});
 
 router.get("/me", authMiddleware, async (req, res) => {
   const userId = req.userId;
@@ -52,11 +63,15 @@ router.post("/signup", async (req, res) => {
     });
   }
 
+  const uid = [...Array(10)].map(() => Math.random().toString(36)[2]).join("");
+
   const user = await User.create({
     email: req.body.email,
     password: req.body.password,
     firstName: req.body.firstName,
     lastName: req.body.lastName,
+    isVerified: false,
+    token: uid,
   });
 
   const userId = user._id;
@@ -68,8 +83,16 @@ router.post("/signup", async (req, res) => {
     JWT_SECRET
   );
 
+  const emailData = await transporter.sendMail({
+    from: '"NexaWings" <nexawingsenterprises@gmail.com>',
+    to: req.body.email,
+    subject: "Email Verification",
+    html: `<p> Hi ${req.body.firstName}. Please verify your email. </p> 
+    <a href = "http://localhost:3000/api/v1/user/verify/${uid}"> Click Here </a>`,
+  });
+
   res.status(200).json({
-    message: "user created",
+    message: "user created. please verify email.",
     token: token,
   });
 });
@@ -94,24 +117,57 @@ router.post("/signin", async (req, res) => {
   });
 
   if (user) {
-    const userId = user._id;
+    const isVerified = user.isVerified;
 
-    const token = jwt.sign(
-      {
-        userId,
-      },
-      JWT_SECRET
-    );
+    if (isVerified) {
+      const userId = user._id;
 
-    res.status(200).json({
-      token: token,
+      const token = jwt.sign(
+        {
+          userId,
+        },
+        JWT_SECRET
+      );
+
+      res.status(200).json({
+        token: token,
+      });
+    } else {
+      res.status(403).json({
+        message: "please verify email",
+      });
+    }
+  } else {
+    res.status(404).json({
+      message: "no user exists",
     });
-    return;
   }
+});
 
-  res.status(411).json({
-    message: "error while logging in",
-  });
+router.get("/verify/:token", async (req, res) => {
+  token = req.params.token;
+
+  const user = await User.updateOne(
+    {
+      token: token,
+    },
+    {
+      $set: {
+        isVerified: true,
+        token: "",
+      },
+    }
+  );
+
+  if (!user) {
+    res.status(404).json({
+      message: "incorrect token",
+    });
+  } else {
+    res.status(200).json({
+      message: "email verified",
+    });
+  }
 });
 
 module.exports = router;
