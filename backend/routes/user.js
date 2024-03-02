@@ -147,7 +147,7 @@ router.post("/signin", async (req, res) => {
 router.get("/verify/:token", async (req, res) => {
   token = req.params.token;
 
-  const user = await User.updateOne(
+  const user = await User.findOneAndUpdate(
     {
       token: token,
     },
