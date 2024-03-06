@@ -132,93 +132,10 @@ router.post("/signin", async (req, res) => {
       message: "no user exists",
     });
   }
-});
 
-router.get("/verify/:token", async (req, res) => {
-  token = req.params.token;
-
-  const user = await User.findOneAndUpdate(
-    {
-      token: token,
-    },
-    {
-      $set: {
-        isVerified: true,
-        token: "",
-      },
-    }
-  );
-
-  if (!user) {
-    res.status(404).json({
-      message: "incorrect token",
-    });
-  } else {
-    res.status(200).json({
-      message: "email verified. please signin",
-    });
-  }
-});
-
-router.post("/forgot", async (req, res) => {
-  const uid = [...Array(10)].map(() => Math.random().toString(36)[2]).join("");
-
-  const user = await User.findOneAndUpdate(
-    {
-      email: req.body.email,
-    },
-    {
-      $set: {
-        token: uid,
-      },
-    }
-  );
-
-  if (!user) {
-    res.status(404).json({
-      message: "incorrect email",
-    });
-  } else {
-    await transporter.sendMail({
-      from: '"NexaWings" <nexawingsenterprises@gmail.com>',
-      to: req.body.email,
-      subject: "Reset Password",
-      html: `<p> Hi ${user.firstName}. Please use the link to reset password. </p> 
-      <a href = "http://localhost:3000/api/v1/user/reset/${uid}"> Click here </a>`,
-    });
-
-    res.status(200).json({
-      message: "please check email to reset password",
-    });
-  }
-});
-
-router.post("/reset/:token", async (req, res) => {
-  token = req.params.token;
-
-  const user = await User.findOneAndUpdate(
-    {
-      token: token,
-    },
-    {
-      $set: {
-        password: req.body.password,
-        token: "",
-      },
-    }
-  );
-
-  console.log(user);
-
-  if (!user) {
-    res.status(404).json({
-      message: "incorrect token",
-    });
-  } else {
-    res.status(200).json({
-      message: "password updated",
-    });
-  }
+  res.status(411).json({
+    message: "error while logging in",
+  });
 });
 
 module.exports = router;
