@@ -3,7 +3,6 @@ const router = express.Router();
 const zod = require("zod");
 const { User } = require("../dbSchema");
 const jwt = require("jsonwebtoken");
-const { JWT_SECRET, email, password } = require("../config");
 const { authMiddleware } = require("../middleware/middleware");
 const nodemailer = require("nodemailer");
 
@@ -12,8 +11,8 @@ const transporter = nodemailer.createTransport({
   port: 587,
   secure: false,
   auth: {
-    user: email,
-    pass: password,
+    user: process.env.EMAIL,
+    pass: process.env.PASSWORD,
   },
 });
 
@@ -116,7 +115,7 @@ router.post("/signin", async (req, res) => {
         {
           userId,
         },
-        JWT_SECRET
+        process.env.JWT_SECRET
       );
 
       res.status(200).json({
@@ -132,10 +131,147 @@ router.post("/signin", async (req, res) => {
       message: "no user exists",
     });
   }
+});
 
-  res.status(411).json({
-    message: "error while logging in",
-  });
+router.get("/verify/:token", async (req, res) => {
+  token = req.params.token;
+
+  const user = await User.findOneAndUpdate(
+    {
+      token: token,
+    },
+    {
+      $set: {
+        isVerified: true,
+        token: "",
+      },
+    }
+  );
+
+  if (!user) {
+    res.status(404).json({
+      message: "incorrect token",
+    });
+  } else {
+    res.status(200).json({
+      message: "email verified. please signin",
+    });
+  }
+});
+
+router.post("/forgot", async (req, res) => {
+  const uid = [...Array(10)].map(() => Math.random().toString(36)[2]).join("");
+
+  const user = await User.findOneAndUpdate(
+    {
+      email: req.body.email,
+    },
+    {
+      $set: {
+        token: uid,
+      },
+    }
+  );
+
+  if (!user) {
+    res.status(404).json({
+      message: "incorrect email",
+    });
+  } else {
+    await transporter.sendMail({
+      from: '"NexaWings" <nexawingsenterprises@gmail.com>',
+      to: req.body.email,
+      subject: "Reset Password",
+      html: `<p> Hi ${user.firstName}. Please use the link to reset password. </p> 
+      <a href = "${process.env.FRONTEND_URL}reset/${uid}"> Click here </a>`,
+    });
+
+    res.status(200).json({
+      message: "please check email to reset password",
+    });
+  }
+});
+
+router.put("/reset/:token", async (req, res) => {
+  token = req.params.token;
+
+  const user = await User.findOneAndUpdate(
+    {
+      token: token,
+    },
+    {
+      $set: {
+        password: req.body.password,
+        token: "",
+      },
+    }
+  );
+
+  if (!user) {
+    res.status(404).json({
+      message: "incorrect token",
+    });
+  } else {
+    res.status(200).json({
+      message: "password updated",
+    });
+  }
+});
+
+router.post("/resend", async (req, res) => {
+  const uid = [...Array(10)].map(() => Math.random().toString(36)[2]).join("");
+
+  const user = await User.findOneAndUpdate(
+    {
+      email: req.body.email,
+    },
+    {
+      $set: {
+        token: uid,
+      },
+    }
+  );
+
+  if (!user) {
+    res.status(404).json({
+      message: "incorrect email",
+    });
+  } else {
+    await transporter.sendMail({
+      from: '"NexaWings" <nexawingsenterprises@gmail.com>',
+      to: req.body.email,
+      subject: "Email Verification",
+      html: `<p> Hi ${user.firstName}. Please verify your email. </p> 
+    <a href = "http://localhost:3000/api/v1/user/verify/${uid}"> Click Here </a>`,
+    });
+
+    res.status(200).json({
+      message: "email sent. please verify",
+    });
+  }
+});
+
+router.put("/update", authMiddleware, async (req, res) => {
+  const user = await User.findOneAndUpdate(
+    {
+      _id: req.userId,
+    },
+    {
+      $set: {
+        password: req.body.password,
+      },
+    }
+  );
+
+  if (!user) {
+    res.status(403).json({
+      message: "incorrect headers",
+    });
+  } else {
+    res.status(200).json({
+      message: "password updated",
+    });
+  }
 });
 
 module.exports = router;

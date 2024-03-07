@@ -1,9 +1,5 @@
 const mongoose = require("mongoose");
-const { boolean } = require("zod");
-
-mongoose.connect(
-  "mongodb+srv://arkodeep3404:L89PPgc5fBWg8YjQ@gocpt.aujxdka.mongodb.net/"
-);
+mongoose.connect(process.env.MONGODB);
 
 const schema = mongoose.Schema;
 const model = mongoose.model;
