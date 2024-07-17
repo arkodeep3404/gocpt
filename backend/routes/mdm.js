@@ -78,6 +78,9 @@ router.post(
       const mdm_value = sorted_inputs[1];
 
       res.status(200).json({
+        response2: response2,
+        response4: response4,
+        response6: response6,
         mdm_value: mdm_value,
       });
     } catch (error) {
